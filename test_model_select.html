@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>测试模型选择</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        .test-section {
+            border: 1px solid #ddd;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 5px;
+        }
+        select {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 10px;
+            border-left: 4px solid #2196F3;
+            margin: 10px 0;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 模型选择功能测试</h1>
+    
+    <div class="test-section">
+        <h2>测试 1：基础模型列表</h2>
+        <div class="info">
+            这个测试会调用后端 API 获取可用的基础模型列表
+        </div>
+        <button onclick="testBaseModels()">获取基础模型列表</button>
+        <pre id="baseModelResult" style="background:#f5f5f5; padding:10px; display:none;"></pre>
+    </div>
+
+    <div class="test-section">
+        <h2>测试 2：增量学习模型选择</h2>
+        <div class="info">
+            模拟前端"增量学习"模式下的模型选择下拉框
+        </div>
+        
+        <label>训练模式：</label>
+        <select id="trainMode" onchange="toggleTrainMode()">
+            <option value="new">从头训练</option>
+            <option value="resume" selected>增量学习（继续训练）</option>
+        </select>
+
+        <label id="baseModelLabel" style="display:none;">基础模型：</label>
+        <select id="trainBaseModel" style="display:none;">
+            <option value="yolo11m.pt">YOLO11m (官方预训练)</option>
+            <option value="models/yolo11m.pt">YOLO11m (本地)</option>
+        </select>
+
+        <label id="resumeFromLabel">从哪个模型/训练继续：</label>
+        <select id="trainResumeFrom">
+            <option value="">选择基础模型或训练任务</option>
+            <option value="models/yolo11m.pt" style="font-weight:bold;">🆕 yolo11m.pt (YOLO11 预训练)</option>
+            <option disabled>── 已完成的训练 ──</option>
+            <option value="t_20260308_1128_e79d">t_20260308_1128_e79d (mAP: 23.2%)</option>
+            <option value="t_20260307_1742_895e">t_20260307_1742_895e (mAP: 15.7%)</option>
+        </select>
+
+        <button onclick="showSelection()">显示选择结果</button>
+        <pre id="selectionResult" style="background:#f5f5f5; padding:10px; display:none;"></pre>
+    </div>
+
+    <script>
+        function toggleTrainMode() {
+            const mode = document.getElementById('trainMode').value;
+            const baseModelLabel = document.getElementById('baseModelLabel');
+            const baseModelSelect = document.getElementById('trainBaseModel');
+            const resumeFromLabel = document.getElementById('resumeFromLabel');
+            const resumeFromSelect = document.getElementById('trainResumeFrom');
+            
+            if (mode === 'resume') {
+                baseModelLabel.style.display = 'none';
+                baseModelSelect.style.display = 'none';
+                resumeFromLabel.style.display = 'block';
+                resumeFromSelect.style.display = 'block';
+            } else {
+                baseModelLabel.style.display = 'block';
+                baseModelSelect.style.display = 'block';
+                resumeFromLabel.style.display = 'none';
+                resumeFromSelect.style.display = 'none';
+            }
+        }
+
+        async function testBaseModels() {
+            const resultPre = document.getElementById('baseModelResult');
+            resultPre.style.display = 'block';
+            resultPre.textContent = '加载中...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/models/base');
+                const result = await response.json();
+                resultPre.textContent = JSON.stringify(result, null, 2);
+                
+                if (result.success) {
+                    alert(`✅ 成功获取 ${result.models.length} 个模型`);
+                } else {
+                    alert('❌ 获取失败');
+                }
+            } catch (error) {
+                resultPre.textContent = `错误：${error.message}\n\n请确保后端服务正在运行 (http://localhost:8000)`;
+                alert('❌ 请求失败，请检查后端服务是否运行');
+            }
+        }
+
+        function showSelection() {
+            const mode = document.getElementById('trainMode').value;
+            const baseModel = document.getElementById('trainBaseModel').value;
+            const resumeFrom = document.getElementById('trainResumeFrom').value;
+            
+            const resultPre = document.getElementById('selectionResult');
+            resultPre.style.display = 'block';
+            resultPre.textContent = JSON.stringify({
+                训练模式：mode,
+                基础模型：baseModel,
+                增量学习从：resumeFrom
+            }, null, 2);
+            
+            // 发送到后端的请求体
+            const requestBody = {
+                epochs: 100,
+                batch_size: 8,
+                img_size: 640,
+                model: mode === 'new' ? baseModel : 'yolo11m.pt',
+                resume_from: mode === 'resume' ? resumeFrom : null
+            };
+            
+            resultPre.textContent += '\n\n发送到后端的请求:\n' + JSON.stringify(requestBody, null, 2);
+        }
+
+        // 初始化
+        toggleTrainMode();
+    </script>
+</body>
+</html>
